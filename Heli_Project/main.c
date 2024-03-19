@@ -56,8 +56,7 @@
 //*****************************************************************************
 static circBuf_t g_inBuffer;        // Buffer of size BUF_SIZE integers (sample values)
 static uint32_t g_ulSampCnt;    // Counter for the interrupts
-static uint32_t g_heliLandedAlt = 1240; //Value for the reading at heli landed alitutude
-static uint32_t g_heliMaxHeightAlt = 0; //Value for the reading at heli max alitutude
+static int32_t g_heliLandedAlt = 1240; //Value for the reading at heli landed alitutude
 
 //*****************************************************************************
 //
@@ -178,9 +177,9 @@ dispBlank()
 }
 
 void
-displayPercentAlt(uint32_t percentVal)
+displayPercentAlt(int32_t percentVal)
 {
-    dispBlank();
+
     char string[17];  // 16 characters across the display
 
     OLEDStringDraw ("Percent Alt", 0, 0);
@@ -188,15 +187,15 @@ displayPercentAlt(uint32_t percentVal)
     // Form a new string for the line.  The maximum width specified for the
     //  number field ensures it is displayed right justified.
 
-    usnprintf (string, sizeof(string), "Percent = %3d", percentVal);
+    usnprintf (string, sizeof(string), "Percent = %4d", percentVal);
     OLEDStringDraw (string, 0, 1);
 
 }
 
 void
-displayMeanAdc(uint32_t meanVal)
+displayMeanAdc(int32_t meanVal)
 {
-    dispBlank();
+
     char string[17];  // 16 characters across the display
 
     OLEDStringDraw ("Mean ADC val", 0, 0);
@@ -212,22 +211,20 @@ displayMeanAdc(uint32_t meanVal)
 void
 groundSet(void)
 {
-    uint16_t i;
+    int16_t i;
     int32_t sum;
     sum = 0;
     for (i = 0; i < BUF_SIZE; i++)
         sum = sum + readCircBuf (&g_inBuffer);
     // Calculate and display the rounded mean of the buffer contents
     g_heliLandedAlt = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
-    g_heliMaxHeightAlt = g_heliLandedAlt - 1240;
-
-
 }
 
-int calculateAltitudePercentage(int adcValue, int landedAltitude) {
 
-    int altitudePercentage = (((g_heliLandedAlt - adcValue) * 10) / 124);
 
+int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
+
+    int32_t altitudePercentage = (((g_heliLandedAlt - adcValue) * 10) / 124);
 
     return altitudePercentage;
 }
@@ -235,11 +232,10 @@ int calculateAltitudePercentage(int adcValue, int landedAltitude) {
 int
 main(void)
 {
-    uint16_t i;
+    int16_t i;
     int32_t sum;
-    uint16_t meanVal;
-    uint8_t percentAlt;
-
+    int32_t meanVal;
+    int32_t percentAlt;
     int8_t dispMode;
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
@@ -256,7 +252,7 @@ main(void)
     IntMasterEnable();
 
     groundSet();
-
+    percentAlt = 0;
     displayPercentAlt (percentAlt);
     while (1)
     {
@@ -280,6 +276,7 @@ main(void)
 
 
         if ((checkButton (UP) == PUSHED)) {
+            dispBlank();
             dispMode += 1;
         }
         if (dispMode == 0) {
