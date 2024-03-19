@@ -45,7 +45,7 @@
 #define UART_USB_GPIO_PIN_RX    GPIO_PIN_0
 #define UART_USB_GPIO_PIN_TX    GPIO_PIN_1
 #define UART_USB_GPIO_PINS      UART_USB_GPIO_PIN_RX | UART_USB_GPIO_PIN_TX
-#define BUF_SIZE 48
+#define BUF_SIZE 12
 #define SAMPLE_RATE_HZ 48
 
 
@@ -170,26 +170,42 @@ initDisplay (void)
 // Function to display the mean ADC value (10-bit value, note) and sample count.
 //
 //*****************************************************************************
-void
-displayValues(uint16_t meanVal, int8_t percentVal)
+
+dispBlank()
 {
+    OLEDStringDraw ("                 ", 0, 0);
+    OLEDStringDraw ("                 ", 0, 1);
+}
+
+void
+displayPercentAlt(uint32_t percentVal)
+{
+    dispBlank();
     char string[17];  // 16 characters across the display
 
-    OLEDStringDraw ("ADC demo 2", 0, 0);
+    OLEDStringDraw ("Percent Alt", 0, 0);
 
     // Form a new string for the line.  The maximum width specified for the
     //  number field ensures it is displayed right justified.
-    usnprintf (string, sizeof(string), "Mean ADC = %4d", meanVal);
-    // Update line on display.
-    OLEDStringDraw (string, 0, 1);
-
-    usnprintf (string, sizeof(string), "Ground : %4d", g_heliLandedAlt);
-    OLEDStringDraw (string, 0, 2);
-
 
     usnprintf (string, sizeof(string), "Percent = %3d", percentVal);
-    OLEDStringDraw (string, 0, 3);
+    OLEDStringDraw (string, 0, 1);
 
+}
+
+void
+displayMeanAdc(uint32_t meanVal)
+{
+    dispBlank();
+    char string[17];  // 16 characters across the display
+
+    OLEDStringDraw ("Mean ADC val", 0, 0);
+
+    // Form a new string for the line.  The maximum width specified for the
+    //  number field ensures it is displayed right justified.
+
+    usnprintf (string, sizeof(string), "ADC: %4d", meanVal);
+    OLEDStringDraw (string, 0, 1);
 
 }
 
@@ -212,6 +228,7 @@ int calculateAltitudePercentage(int adcValue, int landedAltitude) {
 
     int altitudePercentage = (((g_heliLandedAlt - adcValue) * 10) / 124);
 
+
     return altitudePercentage;
 }
 
@@ -221,7 +238,9 @@ main(void)
     uint16_t i;
     int32_t sum;
     uint16_t meanVal;
-    int8_t percentAlt;
+    uint8_t percentAlt;
+
+    int8_t dispMode;
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
     SysCtlPeripheralReset (LEFT_BUT_PERIPH);        // LEFT button GPIO
@@ -238,7 +257,7 @@ main(void)
 
     groundSet();
 
-
+    displayPercentAlt (percentAlt);
     while (1)
     {
         //
@@ -259,10 +278,19 @@ main(void)
 
         percentAlt = calculateAltitudePercentage(meanVal, g_heliLandedAlt);
 
-        displayValues (meanVal, percentAlt);
 
         if ((checkButton (UP) == PUSHED)) {
-
+            dispMode += 1;
+        }
+        if (dispMode == 0) {
+            displayPercentAlt (percentAlt);
+        } else if (dispMode == 1) {
+            displayMeanAdc(meanVal);
+        } else if (dispMode == 2) {
+            dispBlank();
+        } else {
+            dispMode = 0;
+            displayPercentAlt (percentAlt);
         }
         //SysCtlDelay (SysCtlClockGet() / 6);  // Update display at ~ 2 Hz
     }
