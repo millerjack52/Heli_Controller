@@ -251,6 +251,8 @@ main(void)
     // Enable interrupts to the processor.
     IntMasterEnable();
 
+    SysCtlDelay (SysCtlClockGet() / 6);
+
     groundSet();
     percentAlt = 0;
     displayPercentAlt (percentAlt);
