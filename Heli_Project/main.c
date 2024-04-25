@@ -28,6 +28,7 @@
 #include "driverlib/pwm.h"
 #include "driverlib/interrupt.h"
 #include "circBufT.h"
+#include "yaw.h"
 
 
 //********************************************************
@@ -177,18 +178,25 @@ dispBlank()
 }
 
 void
-displayPercentAlt(int32_t percentVal)
+displayPercentAlt(int32_t percentVal, int32_t degrees)
 {
+    int32_t integerPart = degrees / 100; // Extract integer part (e.g., 1234 becomes 12)
+    int32_t decimalPart = degrees % 100; // Extract fractional part (e.g., 1234 becomes 34)
+
 
     char string[17];  // 16 characters across the display
 
+    OLEDStringDraw ("Percent Alt", 0, 0);
     OLEDStringDraw ("Percent Alt", 0, 0);
 
     // Form a new string for the line.  The maximum width specified for the
     //  number field ensures it is displayed right justified.
 
-    usnprintf (string, sizeof(string), "Percent = %4d", percentVal);
+    usnprintf (string, sizeof(string), "Percent = %4d ", percentVal);
     OLEDStringDraw (string, 0, 1);
+
+    usnprintf (string, sizeof(string), "Yaw = %3d.%2d degrees", integerPart, decimalPart);
+    OLEDStringDraw (string, 0, 2);
 
 }
 
@@ -237,11 +245,12 @@ main(void)
     int32_t meanVal;
     int32_t percentAlt;
     int8_t dispMode;
+    int32_t degrees;
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
     SysCtlPeripheralReset (LEFT_BUT_PERIPH);        // LEFT button GPIO
 
-
+    initYaw();
     initClock ();
     initADC ();
     initDisplay ();
@@ -255,13 +264,14 @@ main(void)
 
     groundSet();
     percentAlt = 0;
-    displayPercentAlt (percentAlt);
+    displayPercentAlt (percentAlt, 0);
     while (1)
     {
         //
         // Background task: calculate the (approximate) mean of the values in the
         // circular buffer and display it, together with the sample number.
         updateButtons();
+
 
         if ((checkButton (LEFT) == PUSHED)) {
             groundSet();
@@ -275,21 +285,21 @@ main(void)
         meanVal = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
 
         percentAlt = calculateAltitudePercentage(meanVal, g_heliLandedAlt);
-
+        degrees = calcYawDegrees();
 
         if ((checkButton (UP) == PUSHED)) {
             dispBlank();
             dispMode += 1;
         }
         if (dispMode == 0) {
-            displayPercentAlt (percentAlt);
+            displayPercentAlt (percentAlt, degrees);
         } else if (dispMode == 1) {
             displayMeanAdc(meanVal);
         } else if (dispMode == 2) {
             dispBlank();
         } else {
             dispMode = 0;
-            displayPercentAlt (percentAlt);
+            displayPercentAlt (percentAlt, degrees);
         }
         //SysCtlDelay (SysCtlClockGet() / 6);  // Update display at ~ 2 Hz
     }
