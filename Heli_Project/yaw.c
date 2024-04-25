@@ -16,15 +16,17 @@ void quadratureIntHandler(void) {
 
     //Get phase for quad phase machine
     prev_phase = cur_phase;
-    if (encoder_A == 0 && encoder_B == 0) {
+    if (!encoder_A && !encoder_B) {
         cur_phase = 1;
-    } else if(encoder_A == 0 && encoder_B == 1) {
+    } else if(!encoder_A && encoder_B) {
         cur_phase = 2;
-    } else if(encoder_A == 1 && encoder_B == 1) {
+    } else if(encoder_A && encoder_B) {
         cur_phase = 3;
-    } else if(encoder_A == 1 && encoder_B == 0) {
+    } else if(encoder_A && !encoder_B) {
         cur_phase = 4;
     }
+
+
     calculateYaw(prev_phase, cur_phase);
 
 }
@@ -41,6 +43,7 @@ void calculateYaw(int32_t prev_phase, int32_t cur_phase) {
         yaw --;
     }
 }
+
 
 void refYawIntHandler(void) {
     GPIOIntClear(GPIO_PORTC_BASE, GPIO_PIN_4);
@@ -68,7 +71,7 @@ void initYaw(void) {
 int32_t calcYawDegrees() {
     int32_t degrees;
     degrees = degConversion * yaw; // (/100)
-    return degrees;
+    return degrees / 4;
 }
 
 
