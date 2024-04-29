@@ -11,7 +11,6 @@
 void quadratureIntHandler(void) {
     int32_t encoder_A = GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_0);
     int32_t encoder_B = GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_1);
-
     GPIOIntClear(GPIO_PORTB_BASE,GPIO_PIN_0|GPIO_PIN_1);
 
     //Get phase for quad phase machine
@@ -25,7 +24,6 @@ void quadratureIntHandler(void) {
     } else if(encoder_A && !encoder_B) {
         cur_phase = 4;
     }
-
 
     calculateYaw(prev_phase, cur_phase);
 
@@ -45,38 +43,21 @@ void calculateYaw(int32_t prev_phase, int32_t cur_phase) {
 }
 
 
-void refYawIntHandler(void) {
-    GPIOIntClear(GPIO_PORTC_BASE, GPIO_PIN_4);
-    yawCalibrated = true;
-    yaw = 0;
-}
-
 void initYaw(void) {
     SysCtlPeripheralEnable (SYSCTL_PERIPH_GPIOB);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
-
     GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1, GPIO_STRENGTH_4MA, GPIO_PIN_TYPE_STD_WPU);
     GPIOIntRegister(GPIO_PORTB_BASE, quadratureIntHandler);
     GPIOIntTypeSet(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1, GPIO_BOTH_EDGES);
     GPIOIntEnable(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    IntEnable(INT_GPIOB);
-
-    GPIOPadConfigSet(GPIO_PORTC_BASE, GPIO_PIN_4, GPIO_STRENGTH_4MA, GPIO_PIN_TYPE_STD_WPU);
-    GPIOIntRegister(GPIO_PORTC_BASE, refYawIntHandler);
-    GPIOIntTypeSet(GPIO_PORTC_BASE, GPIO_PIN_4, GPIO_RISING_EDGE);
-    GPIOIntEnable(GPIO_PORTC_BASE, GPIO_PIN_4);
-    IntEnable(INT_GPIOC);
 }
 
 int32_t calcYawDegrees() {
     int32_t degrees;
-    degrees = degConversion * yaw; // (/100)
+    degrees = degConversion * yaw;
+    if (yaw >= 448) {
+        yaw -= 448;
+    } else if (yaw < 0 ) {
+        yaw += 448;
+    }
     return degrees / 4;
 }
-
-
-
-
-
-
-

@@ -29,6 +29,7 @@
 #include "driverlib/interrupt.h"
 #include "circBufT.h"
 #include "yaw.h"
+//#include "altitude.h"
 
 
 //********************************************************
@@ -36,7 +37,7 @@
 //********************************************************
 #define SYSTICK_RATE_HZ 100
 #define SLOWTICK_RATE_HZ 4
-#define MAX_STR_LEN 16
+#define MAX_STR_LEN 17
 //---USB Serial comms: UART0, Rx:PA0 , Tx:PA1
 #define BAUD_RATE 9600
 #define UART_USB_BASE           UART0_BASE
@@ -50,7 +51,11 @@
 #define SAMPLE_RATE_HZ 48
 
 
-
+//*****************************************************************************
+//
+// The interrupt handler for the for SysTick interrupt.
+//
+//*****************************************************************************
 
 //*****************************************************************************
 // Global variables
@@ -67,21 +72,12 @@ static int32_t g_heliLandedAlt = 1240; //Value for the reading at heli landed al
 void
 SysTickIntHandler(void)
 {
-    //
-    // Initiate a conversion
-    //
 
     ADCProcessorTrigger(ADC0_BASE, 3);
     g_ulSampCnt++;
 
 }
 
-//*****************************************************************************
-//
-// The handler for the ADC conversion complete interrupt.
-// Writes to the circular buffer.
-//
-//*****************************************************************************
 void
 ADCIntHandler(void)
 {
@@ -98,6 +94,20 @@ ADCIntHandler(void)
     // Clean up, clearing the interrupt
     ADCIntClear(ADC0_BASE, 3);
 }
+
+
+void
+initADC (void)
+{
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+    ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
+    ADCSequenceStepConfigure(ADC0_BASE, 3, 0, ADC_CTL_CH9 | ADC_CTL_IE |
+                             ADC_CTL_END);
+    ADCSequenceEnable(ADC0_BASE, 3);
+    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
+    ADCIntEnable(ADC0_BASE, 3);
+}
+
 
 //*****************************************************************************
 // Initialisation functions for the clock (incl. SysTick), ADC, display
@@ -122,97 +132,29 @@ initClock (void)
 }
 
 void
-initADC (void)
-{
-    //
-    // The ADC0 peripheral must be enabled for configuration and use.
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
-
-    // Enable sample sequence 3 with a processor signal trigger.  Sequence 3
-    // will do a single sample when the processor sends a signal to start the
-    // conversion.
-    ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
-
-    //
-    // Configure step 0 on sequence 3.  Sample channel 0 (ADC_CTL_CH0) in
-    // single-ended mode (default) and configure the interrupt flag
-    // (ADC_CTL_IE) to be set when the sample is done.  Tell the ADC logic
-    // that this is the last conversion on sequence 3 (ADC_CTL_END).  Sequence
-    // 3 has only one programmable step.  Sequence 1 and 2 have 4 steps, and
-    // sequence 0 has 8 programmable steps.  Since we are only doing a single
-    // conversion using sequence 3 we will only configure step 0.  For more
-    // on the ADC sequences and steps, refer to the LM3S1968 datasheet.
-    ADCSequenceStepConfigure(ADC0_BASE, 3, 0, ADC_CTL_CH9 | ADC_CTL_IE |
-                             ADC_CTL_END);
-
-    //
-    // Since sample sequence 3 is now configured, it must be enabled.
-    ADCSequenceEnable(ADC0_BASE, 3);
-
-    //
-    // Register the interrupt handler
-    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
-
-    //
-    // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)
-    ADCIntEnable(ADC0_BASE, 3);
-}
-
-void
 initDisplay (void)
 {
     // intialise the Orbit OLED display
     OLEDInitialise ();
 }
 
-//*****************************************************************************
-//
-// Function to display the mean ADC value (10-bit value, note) and sample count.
-//
-//*****************************************************************************
+void display(int32_t percentVal, int32_t degrees) {
+    char string[MAX_STR_LEN];
+    //Extract integer and decimal parts from the degrees calculation, and then display the altitude percentage and the yaw value.
+    int32_t integerPart = degrees / 100;
+    int32_t decimalPart = abs(degrees % 100);
 
-dispBlank()
-{
-    OLEDStringDraw ("                 ", 0, 0);
-    OLEDStringDraw ("                 ", 0, 1);
-}
-
-void
-displayPercentAlt(int32_t percentVal, int32_t degrees)
-{
-    int32_t integerPart = degrees / 100; // Extract integer part (e.g., 1234 becomes 12)
-    int32_t decimalPart = degrees % 100; // Extract fractional part (e.g., 1234 becomes 34)
-
-
-    char string[17];  // 16 characters across the display
-
-    OLEDStringDraw ("Percent Alt", 0, 0);
-    OLEDStringDraw ("Percent Alt", 0, 0);
-
-    // Form a new string for the line.  The maximum width specified for the
-    //  number field ensures it is displayed right justified.
-
-    usnprintf (string, sizeof(string), "Percent = %4d ", percentVal);
+    usnprintf (string, sizeof(string), "Altitude = %4d%%", percentVal);
     OLEDStringDraw (string, 0, 1);
 
-    usnprintf (string, sizeof(string), "Yaw = %3d.%2d degrees", integerPart, decimalPart);
-    OLEDStringDraw (string, 0, 2);
+    if (decimalPart < 10) {
+        usnprintf (string, sizeof(string), "Yaw = %3d.0%1d deg", integerPart, decimalPart);
+        OLEDStringDraw (string, 0, 2);
+    } else {
+        usnprintf (string, sizeof(string), "Yaw = %3d.%2d deg", integerPart, decimalPart);
+        OLEDStringDraw (string, 0, 2);
+    }
 
-}
-
-void
-displayMeanAdc(int32_t meanVal)
-{
-
-    char string[17];  // 16 characters across the display
-
-    OLEDStringDraw ("Mean ADC val", 0, 0);
-
-    // Form a new string for the line.  The maximum width specified for the
-    //  number field ensures it is displayed right justified.
-
-    usnprintf (string, sizeof(string), "ADC: %4d", meanVal);
-    OLEDStringDraw (string, 0, 1);
 
 }
 
@@ -228,23 +170,20 @@ groundSet(void)
     g_heliLandedAlt = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
 }
 
-
-
 int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
 
     int32_t altitudePercentage = (((g_heliLandedAlt - adcValue) * 10) / 124);
-
     return altitudePercentage;
 }
 
-int
-main(void)
-{
+
+
+int main(void) {
+
     int16_t i;
     int32_t sum;
     int32_t meanVal;
     int32_t percentAlt;
-    int8_t dispMode;
     int32_t degrees;
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
@@ -255,29 +194,20 @@ main(void)
     initADC ();
     initDisplay ();
     initCircBuf (&g_inBuffer, BUF_SIZE);
-    initButtons ();  // Initialises 4 pushbuttons (UP, DOWN, LEFT, RIGHT)
-    //
-    // Enable interrupts to the processor.
+    initButtons ();
     IntMasterEnable();
-
     SysCtlDelay (SysCtlClockGet() / 6);
-
     groundSet();
     percentAlt = 0;
-    displayPercentAlt (percentAlt, 0);
+    display(percentAlt, 0);
     while (1)
-    {
-        //
-        // Background task: calculate the (approximate) mean of the values in the
-        // circular buffer and display it, together with the sample number.
-        updateButtons();
 
+    {
+        updateButtons();
 
         if ((checkButton (LEFT) == PUSHED)) {
             groundSet();
         }
-
-
         sum = 0;
         for (i = 0; i < BUF_SIZE; i++)
             sum = sum + readCircBuf (&g_inBuffer);
@@ -287,21 +217,7 @@ main(void)
         percentAlt = calculateAltitudePercentage(meanVal, g_heliLandedAlt);
         degrees = calcYawDegrees();
 
-        if ((checkButton (UP) == PUSHED)) {
-            dispBlank();
-            dispMode += 1;
-        }
-        if (dispMode == 0) {
-            displayPercentAlt (percentAlt, degrees);
-        } else if (dispMode == 1) {
-            displayMeanAdc(meanVal);
-        } else if (dispMode == 2) {
-            dispBlank();
-        } else {
-            dispMode = 0;
-            displayPercentAlt (percentAlt, degrees);
-        }
-        //SysCtlDelay (SysCtlClockGet() / 6);  // Update display at ~ 2 Hz
+        display(percentAlt, degrees);
     }
 }
 
