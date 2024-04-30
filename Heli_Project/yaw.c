@@ -54,9 +54,9 @@ void initYaw(void) {
 int32_t calcYawDegrees() {
     int32_t degrees;
     degrees = degConversion * yaw;
-    if (yaw >= 448) {
+    if (yaw >= 224) {
         yaw -= 448;
-    } else if (yaw < 0 ) {
+    } else if (yaw < -224 ) {
         yaw += 448;
     }
     return degrees / 4;
