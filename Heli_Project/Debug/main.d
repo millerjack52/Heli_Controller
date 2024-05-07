@@ -36,6 +36,7 @@ main.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/interrupt.h
 main.obj: ../circBufT.h
 main.obj: ../yaw.h
 main.obj: C:/ti/ccs1250/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdlib.h
+main.obj: ../rotors.h
 
 ../main.c:
 
@@ -108,4 +109,6 @@ C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/interrupt.h:
 ../yaw.h:
 
 C:/ti/ccs1250/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdlib.h:
+
+../rotors.h:
 

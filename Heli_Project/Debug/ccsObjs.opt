@@ -1,6 +1,7 @@
 "./buttons4.obj"
 "./circBufT.obj"
 "./main.obj"
+"./rotors.obj"
 "./tm4c123gh6pm_startup_ccs.obj"
 "./ustdlib.obj"
 "./yaw.obj"

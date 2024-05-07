@@ -29,6 +29,7 @@
 #include "driverlib/interrupt.h"
 #include "circBufT.h"
 #include "yaw.h"
+#include "rotors.h"
 //#include "altitude.h"
 
 
@@ -97,7 +98,7 @@ void initDisplay (void) {
     OLEDInitialise ();
 }
 
-void display(int32_t percentVal, int32_t degrees) {
+void display(int32_t percentVal, int32_t degrees, int32_t AltTarget, int32_t degTarget) {
     char string[MAX_STR_LEN];
     //Extract integer and decimal parts from the degrees calculation, and then display the altitude percentage and the yaw value.
     int32_t integerPart = degrees / 100;
@@ -105,7 +106,7 @@ void display(int32_t percentVal, int32_t degrees) {
 
     // Display the altitude percentage
     usnprintf (string, sizeof(string), "Altitude = %4d%%", percentVal);
-    OLEDStringDraw (string, 0, 1);
+    OLEDStringDraw (string, 0, 0);
 
 
 
@@ -113,13 +114,17 @@ void display(int32_t percentVal, int32_t degrees) {
     is less than 10 (0.1 in actual terms) and if it is, adds a 0 in front of it, so it is displayed correctly. */
     if (decimalPart < 10) {
         usnprintf (string, sizeof(string), "Yaw = %3d.0%1d deg", integerPart, decimalPart);
-        OLEDStringDraw (string, 0, 2);
+        OLEDStringDraw (string, 0, 1);
     } else {
         usnprintf (string, sizeof(string), "Yaw = %3d.%2d deg", integerPart, decimalPart);
-        OLEDStringDraw (string, 0, 2);
+        OLEDStringDraw (string, 0, 1);
     }
 
+    usnprintf (string, sizeof(string), "Tgt Alt = %3d%%", AltTarget);
+    OLEDStringDraw (string, 0, 2);
 
+    usnprintf (string, sizeof(string), "Tgt Deg = %3d deg", degTarget);
+    OLEDStringDraw (string, 0, 3);
 }
 
 void groundSet(void) {
@@ -143,33 +148,44 @@ int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
 
 int main(void) {
     //Defines vars to be used in main.
+
     int16_t i;
     int32_t sum;
     int32_t meanVal;
     int32_t percentAlt;
     int32_t degrees;
+    int32_t targetAlt;
+    int32_t targetYawDeg;
+
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
-    SysCtlPeripheralReset (LEFT_BUT_PERIPH);        // LEFT button GPIO
+    SysCtlPeripheralReset (DOWN_BUT_PERIPH);      // DOWN button GPIO
+    SysCtlPeripheralReset (LEFT_BUT_PERIPH);      // LEFT button GPIO
+    SysCtlPeripheralReset (RIGHT_BUT_PERIPH);     // RIGHT button GPIO
+
     initYaw();
     initClock ();
     initADC ();
     initDisplay ();
     initCircBuf (&g_inBuffer, BUF_SIZE);
+
+    initialisePWM ();
+    initialisePWM2();
+    initRotors();
+
+
     initButtons ();
     IntMasterEnable();
     SysCtlDelay (SysCtlClockGet() / 6);
     groundSet();
     percentAlt = 0;
-    display(percentAlt, 0);
+    display(percentAlt, 0, 0, 0);
     while (1)
 
     {
         updateButtons();
-
-        if ((checkButton (LEFT) == PUSHED)) {
-            groundSet();
-        }
+        targetYawDeg = controlTailGoal(targetYawDeg);
+        targetAlt = controlMainGoal(targetAlt);
 
         //Calculates initial avg ADC value.
         sum = 0;
@@ -181,8 +197,11 @@ int main(void) {
         percentAlt = calculateAltitudePercentage(meanVal, g_heliLandedAlt);
         degrees = calcYawDegrees();
 
-        display(percentAlt, degrees);
+        display(percentAlt, degrees, targetAlt, targetYawDeg);
     }
+
+
+
 }
 
 
