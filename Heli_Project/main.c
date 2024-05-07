@@ -52,53 +52,28 @@
 
 
 //*****************************************************************************
-//
-// The interrupt handler for the for SysTick interrupt.
-//
-//*****************************************************************************
-
-//*****************************************************************************
 // Global variables
 //*****************************************************************************
 static circBuf_t g_inBuffer;        // Buffer of size BUF_SIZE integers (sample values)
 static uint32_t g_ulSampCnt;    // Counter for the interrupts
 static int32_t g_heliLandedAlt = 1240; //Value for the reading at heli landed alitutude
 
-//*****************************************************************************
-//
 // The interrupt handler for the for SysTick interrupt.
-//
-//*****************************************************************************
-void
-SysTickIntHandler(void)
-{
-
+void SysTickIntHandler(void) {
     ADCProcessorTrigger(ADC0_BASE, 3);
     g_ulSampCnt++;
-
 }
 
-void
-ADCIntHandler(void)
-{
+void ADCIntHandler(void) {
+    // Get the single sample from ADC0, place it in a circular buffer and clear the interupt.
     uint32_t ulValue;
-
-    //
-    // Get the single sample from ADC0.  ADC_BASE is defined in
-    // inc/hw_memmap.h
     ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
-    //
-    // Place it in the circular buffer (advancing write index)
     writeCircBuf (&g_inBuffer, ulValue);
-    //
-    // Clean up, clearing the interrupt
     ADCIntClear(ADC0_BASE, 3);
 }
 
-
-void
-initADC (void)
-{
+void initADC (void) {
+    //Initialize the ADC
     SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
     ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
     ADCSequenceStepConfigure(ADC0_BASE, 3, 0, ADC_CTL_CH9 | ADC_CTL_IE |
@@ -108,33 +83,17 @@ initADC (void)
     ADCIntEnable(ADC0_BASE, 3);
 }
 
-
-//*****************************************************************************
-// Initialisation functions for the clock (incl. SysTick), ADC, display
-//*****************************************************************************
-void
-initClock (void)
-{
-    // Set the clock rate to 20 MHz
+void initClock (void) {
+    // Set the clock rate to 20 MHz, set up the period for the timer and enable the service and interupt
     SysCtlClockSet (SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
                    SYSCTL_XTAL_16MHZ);
-    //
-    // Set up the period for the SysTick timer.  The SysTick timer period is
-    // set as a function of the system clock.
     SysTickPeriodSet(SysCtlClockGet() / SAMPLE_RATE_HZ);
-    //
-    // Register the interrupt handler
     SysTickIntRegister(SysTickIntHandler);
-    //
-    // Enable interrupt and device
     SysTickIntEnable();
     SysTickEnable();
 }
 
-void
-initDisplay (void)
-{
-    // intialise the Orbit OLED display
+void initDisplay (void) {
     OLEDInitialise ();
 }
 
@@ -144,9 +103,14 @@ void display(int32_t percentVal, int32_t degrees) {
     int32_t integerPart = degrees / 100;
     int32_t decimalPart = abs(degrees % 100);
 
+    // Display the altitude percentage
     usnprintf (string, sizeof(string), "Altitude = %4d%%", percentVal);
     OLEDStringDraw (string, 0, 1);
 
+
+
+    /* Displays the yaw value in degrees, and checks to see if the decimal part 
+    is less than 10 (0.1 in actual terms) and if it is, adds a 0 in front of it, so it is displayed correctly. */
     if (decimalPart < 10) {
         usnprintf (string, sizeof(string), "Yaw = %3d.0%1d deg", integerPart, decimalPart);
         OLEDStringDraw (string, 0, 2);
@@ -158,9 +122,8 @@ void display(int32_t percentVal, int32_t degrees) {
 
 }
 
-void
-groundSet(void)
-{
+void groundSet(void) {
+    // resets the ground value for the altitude reading so the current height is read as 0%.
     int16_t i;
     int32_t sum;
     sum = 0;
@@ -171,7 +134,7 @@ groundSet(void)
 }
 
 int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
-
+    // Calculates the percentage of altitude the heli is currently at.
     int32_t altitudePercentage = (((g_heliLandedAlt - adcValue) * 10) / 124);
     return altitudePercentage;
 }
@@ -179,7 +142,7 @@ int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
 
 
 int main(void) {
-
+    //Defines vars to be used in main.
     int16_t i;
     int32_t sum;
     int32_t meanVal;
@@ -188,7 +151,6 @@ int main(void) {
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
     SysCtlPeripheralReset (LEFT_BUT_PERIPH);        // LEFT button GPIO
-
     initYaw();
     initClock ();
     initADC ();
@@ -208,6 +170,8 @@ int main(void) {
         if ((checkButton (LEFT) == PUSHED)) {
             groundSet();
         }
+
+        //Calculates initial avg ADC value.
         sum = 0;
         for (i = 0; i < BUF_SIZE; i++)
             sum = sum + readCircBuf (&g_inBuffer);

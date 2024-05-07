@@ -9,11 +9,12 @@
 
 
 void quadratureIntHandler(void) {
+    // Initialize the input sensors and clears any pending interupts on the pins to prevent false interupts
     int32_t encoder_A = GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_0);
     int32_t encoder_B = GPIOPinRead(GPIO_PORTB_BASE, GPIO_PIN_1);
     GPIOIntClear(GPIO_PORTB_BASE,GPIO_PIN_0|GPIO_PIN_1);
 
-    //Get phase for quad phase machine
+    //Gets the current phase of the state machine depending on the states of the 2 sensors (encoder A and encoder B)
     prev_phase = cur_phase;
     if (!encoder_A && !encoder_B) {
         cur_phase = 1;
@@ -24,9 +25,8 @@ void quadratureIntHandler(void) {
     } else if(encoder_A && !encoder_B) {
         cur_phase = 4;
     }
-
+    //Alter yaw based on the current and previous yaw
     calculateYaw(prev_phase, cur_phase);
-
 }
 
 void calculateYaw(int32_t prev_phase, int32_t cur_phase) {
@@ -44,6 +44,7 @@ void calculateYaw(int32_t prev_phase, int32_t cur_phase) {
 
 
 void initYaw(void) {
+    //Initialize the GPIO peripherals used for sensing yaw as well as the interupt handlers.
     SysCtlPeripheralEnable (SYSCTL_PERIPH_GPIOB);
     GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1, GPIO_STRENGTH_4MA, GPIO_PIN_TYPE_STD_WPU);
     GPIOIntRegister(GPIO_PORTB_BASE, quadratureIntHandler);
@@ -52,6 +53,9 @@ void initYaw(void) {
 }
 
 int32_t calcYawDegrees() {
+    /* Calculate yaw in degrees - This is done by multiplying the yaw value by 321. There are 112 teeth, so 321*112 gives approximately 36,000.
+     By multiplying the number number of teeth that have been passed by 321, we get a number in degrees which can then be split up into integer and 
+     decimal parts which gives an accurate reading of the yaw in degrees */
     int32_t degrees;
     degrees = degConversion * yaw;
     if (yaw >= 224) {
