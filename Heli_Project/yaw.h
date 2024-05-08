@@ -27,8 +27,6 @@
 #include "driverlib/pwm.h"
 #include "driverlib/interrupt.h"
 
-
-
 static int8_t prev_phase;
 static int8_t cur_phase;
 static int32_t yaw;

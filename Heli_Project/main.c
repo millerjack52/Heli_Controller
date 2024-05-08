@@ -144,7 +144,114 @@ int calculateAltitudePercentage(int32_t adcValue, int32_t landedAltitude) {
     return altitudePercentage;
 }
 
+void updateLandedState(float deltaTime) {
+    mainDuty = MainRotorControlUpdate(targetAlt, percentAlt, deltaTime);
+    tailDuty = TailRotorControlUpdate(targetYawDeg, degrees, deltaTime);
+    mainPWM();
+    tailPWM();
 
+    // Check for the rising edge of SWITCH1
+    if (checkButton(SWITCH1) == PUSHED) {
+        currentState = TAKEOFF;
+        stateChange = true;
+    }
+}
+
+void updateTakeoffState(float deltaTime) {
+    if (stateChange) {
+        stateChange = false;
+        yawCalibrated = false;
+    }
+
+    if (!yawCalibrated) {
+        targetAlt = 10;
+        DisableRefYawInt(false); // enable ref yaw interrupt
+        targetYawDeg = yaw + 5;
+        mainDuty = controlMain(targetAlt, percentAlt, deltaTime);
+        tailDuty = controlTail(targetYawDeg, degrees, deltaTime);
+        SetMainPWM(ui32DutyMain);
+        SetTailPWM(ui32DutyTail);
+    } else {
+        atHoverLevel = true;
+        DisableRefYawInt(true); // disable ref yaw interrupt
+        currentState = FLYING;
+        targetYawDeg = 0;
+        stateChange = true;
+    }
+
+    // Check for the falling edge of SWITCH1
+    if (checkButton(SWITCH1) == RELEASED) {
+        currentState = LANDING;
+        stateChange = true;
+    }
+}
+
+void updateFlyingState() {
+    atHoverLevel = false;
+
+    if (checkButton(UP) == PUSHED) {
+        targetAlt = (targetAlt < 90) ? targetAlt + 10 : 100;
+    }
+
+    if (checkButton(DOWN) == PUSHED) {
+        targetAlt = (targetAlt > 10) ? targetAlt - 10 : 10;
+        if (targetAlt == 10) {
+            currentState = LANDING;
+            stateChange = true;
+        }
+    }
+
+    if (checkButton(LEFT) == PUSHED) {
+        targetYawDeg -= 10;
+        if (targetYawDeg < -179) {
+            targetYawDeg += 360;
+        }
+    }
+
+    if (checkButton(RIGHT) == PUSHED) {
+        targetYawDeg += 10;
+        if (targetYawDeg > 180) {
+            targetYawDeg -= 360;
+        }
+    }
+
+    // Check for the falling edge of SWITCH1
+    if (checkButton(SWITCH1) == RELEASED) {
+        currentState = LANDING;
+        targetAlt = 10;
+        stateChange = true;
+    }
+
+    ui32DutyMain = mainPWM(targetAlt, percentAlt, deltaTime);
+    ui32DutyTail = tailPWM(targetYawDeg, degrees, deltaTime);
+    SetMainPWM(ui32DutyMain);
+    SetTailPWM(ui32DutyTail);
+}
+
+void updateLandingState() {
+    if (targetYawDeg < 0) {
+        targetYawDeg = degrees + 1;
+    } else if (targetYawDeg > 0) {
+        targetYawDeg = degrees - 1;
+    }
+
+    if (currentYaw == 0 && altPercentage == 10) {
+        atHoverLevel = true;
+    }
+
+    if (atHoverLevel) {
+        targetAlt = altPercentage - 1;
+    }
+
+    if (currentYaw == 0 && currentAltitudePercentage == 0) {
+        currentState = LANDED;
+    }
+
+    mainDuty = MainRotorControlUpdate(targetAlt, percentAlt, deltaTime);
+    tailDuty = TailRotorControlUpdate(targetYawDeg, degrees, deltaTime);
+    SetMainPWM(mainDuty);
+    SetTailPWM(tailDuty);
+}
 
 int main(void) {
     //Defines vars to be used in main.
@@ -156,12 +263,13 @@ int main(void) {
     int32_t degrees;
     int32_t targetAlt;
     int32_t targetYawDeg;
-
+    
 
     SysCtlPeripheralReset (UP_BUT_PERIPH);        // UP button GPIO
     SysCtlPeripheralReset (DOWN_BUT_PERIPH);      // DOWN button GPIO
     SysCtlPeripheralReset (LEFT_BUT_PERIPH);      // LEFT button GPIO
     SysCtlPeripheralReset (RIGHT_BUT_PERIPH);     // RIGHT button GPIO
+    SysCtlPeripheralReset (SWITCH1_BUT_PERIPH);   // SWITCH1 switch GPIO
 
     initYaw();
     initClock ();
@@ -177,15 +285,46 @@ int main(void) {
     initButtons ();
     IntMasterEnable();
     SysCtlDelay (SysCtlClockGet() / 6);
+
+    enum States {
+        LANDED = 0,
+        TAKEOFF,
+        FLYING,
+        LANDING
+    }
+
+    enum States currentState = LANDED;
+    bool atHoverLevel;
+
+
+
+
+
     groundSet();
     percentAlt = 0;
     display(percentAlt, 0, 0, 0);
-    while (1)
+    while (1) {
 
-    {
-        updateButtons();
-        targetYawDeg = controlTailGoal(targetYawDeg);
-        targetAlt = controlMainGoal(targetAlt);
+    updateButtons();
+    targetYawDeg = controlTailGoal(targetYawDeg);
+    targetAlt = controlMainGoal(targetAlt);
+
+    switch (currentState) {
+        case LANDED:
+            updateLandedState(deltaTime);
+            break;
+        case TAKEOFF:
+            updateTakeoffState(deltaTime);
+            break;
+        case FLYING:
+            updateFlyingState();
+            break;
+        case LANDING:
+            updateLandingState();
+            break;
+}
+
+        // Check for the falling edge of SWITCH
 
         //Calculates initial avg ADC value.
         sum = 0;

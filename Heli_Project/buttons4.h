@@ -20,7 +20,7 @@
 //*****************************************************************************
 // Constants
 //*****************************************************************************
-enum butNames {UP = 0, DOWN, LEFT, RIGHT, NUM_BUTS};
+enum butNames {UP = 0, DOWN, LEFT, RIGHT, SWITCH1,  NUM_BUTS};
 enum butStates {RELEASED = 0, PUSHED, NO_CHANGE};
 // UP button
 #define UP_BUT_PERIPH  SYSCTL_PERIPH_GPIOE
@@ -42,6 +42,12 @@ enum butStates {RELEASED = 0, PUSHED, NO_CHANGE};
 #define RIGHT_BUT_PORT_BASE  GPIO_PORTF_BASE
 #define RIGHT_BUT_PIN  GPIO_PIN_0
 #define RIGHT_BUT_NORMAL  true
+//SWITCH1 switch
+#define SWITCH1_BUT_PERIPH  SYSCTL_PERIPH_GPIOB
+#define SWITCH1_BUT_PORT_BASE  GPIO_PORTB_BASE
+#define SWITCH1_BUT_PIN  GPIO_PIN_2
+#define SWITCH1_BUT_NORMAL  false
+
 
 #define NUM_BUT_POLLS 3
 // Debounce algorithm: A state machine is associated with each button.

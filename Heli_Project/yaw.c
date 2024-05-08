@@ -46,10 +46,20 @@ void calculateYaw(int32_t prev_phase, int32_t cur_phase) {
 void initYaw(void) {
     //Initialize the GPIO peripherals used for sensing yaw as well as the interupt handlers.
     SysCtlPeripheralEnable (SYSCTL_PERIPH_GPIOB);
+    SysCtlPeripheralEnable(YAW_REF_PERIPH);
+
     GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1, GPIO_STRENGTH_4MA, GPIO_PIN_TYPE_STD_WPU);
     GPIOIntRegister(GPIO_PORTB_BASE, quadratureIntHandler);
     GPIOIntTypeSet(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1, GPIO_BOTH_EDGES);
     GPIOIntEnable(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    //Initialise the reference yaw interrupt
+
+    GPIOPadConfigSet (YAW_REF_PORT_BASE, YAW_REF_PIN, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
+    GPIOIntRegister(YAW_REF_PORT_BASE, RefYawIntHandler);
+    GPIOIntTypeSet(YAW_REF_PORT_BASE, YAW_REF_PIN, GPIO_RISING_EDGE);
+    GPIOIntEnable(YAW_REF_PORT_BASE, YAW_REF_PIN);
+    IntEnable(INT_GPIOC);
 }
 
 int32_t calcYawDegrees() {

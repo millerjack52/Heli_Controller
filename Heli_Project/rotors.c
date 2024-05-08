@@ -84,9 +84,6 @@ void initialisePWM2 (void);
 void setPWM (uint32_t u32Freq, uint32_t u32Duty);
 void setPWM2 (uint32_t u32Freq, uint32_t u32Duty);
 
-
-
-
 /***********************************************************
  * Initialisation functions: clock, SysTick, PWM
  ***********************************************************
@@ -140,7 +137,7 @@ initialisePWM2 (void) //Make tail rotor pwm
  * Function to set the freq, duty cycle of M0PWM7
  ********************************************************/
 void
-setPWM (uint32_t ui32Freq, uint32_t ui32Duty)
+setPWM (uint32_t ui32DutyMain)
 {
     // Calculate the PWM period corresponding to the freq.
     uint32_t ui32Period =
@@ -152,7 +149,7 @@ setPWM (uint32_t ui32Freq, uint32_t ui32Duty)
 }
 
 void
-setPWM2 (uint32_t ui32Freq, uint32_t ui32Duty)
+setPWM2 (uint32_t ui32DutyTail)
 {
     // Calculate the PWM period corresponding to the freq.
     uint32_t ui32Period =
